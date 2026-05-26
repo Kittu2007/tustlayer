@@ -16,11 +16,6 @@
     "SUPABASE_URL": "https://iqanvjvfofssbzqrqswd.supabase.co",
     "SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlxYW52anZmb2Zzc2J6cXJxc3dkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTY2MTUsImV4cCI6MjA5NTI5MjYxNX0.gvuUcdsgFyFaEXSdZJAuEriID-N4YPKEC28nJN3da-s"
   },
-  "functions": {
-    "api/**/*.py": {
-      "runtime": "@vercel/python"
-    }
-  },
   "rewrites": [
     {
       "source": "/api/:path*",
