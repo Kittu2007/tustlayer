@@ -20,23 +20,28 @@ class FinalDecisionAssembler:
         self.recommendations = RecommendationEngine(self.ai_orchestrator)
         
     async def evaluate(self, data: TrustScoreInput) -> TrustScoreResult:
-        # 1. Base deterministic math
+        # 1. Base deterministic math (now with dynamic confidence bands)
         base_score = self.engine.calculate_base_score(data)
         
-        # 2. Risk Escalation (Overrides)
-        final_score, risk_level, fraud_prob = self.escalation.evaluate(data, base_score)
+        # 2. Risk Escalation (Overrides + graduated verdicts)
+        final_score, risk_level, fraud_prob, verdict = self.escalation.evaluate(data, base_score)
         
-        # 3. Psychological Translation (via AI)
+        # 3. Extraction quality label (for frontend transparency)
+        extraction_label = RiskEscalationLayer._compute_extraction_quality_label(data)
+        
+        # 4. Psychological Translation (via AI)
         reasons = await self.reasoning.generate_reasons(data)
         actions = await self.recommendations.generate_recommendations(risk_level, data)
         
-        # 4. Assemble Result
+        # 5. Assemble Result
         return TrustScoreResult(
             trust_score=final_score,
             risk_level=risk_level,
             fraud_probability=fraud_prob,
             confidence_reasoning=reasons,
-            recommended_actions=actions
+            recommended_actions=actions,
+            verdict=verdict,
+            extraction_quality_label=extraction_label
         )
 
 def get_final_decision_assembler() -> FinalDecisionAssembler:

@@ -3,7 +3,7 @@ from typing import Tuple
 
 from backend.modules.ocr.service import OCRService
 from backend.modules.fraud_intelligence.service import FraudIntelligenceService
-from backend.modules.ocr.schemas import OCRResult
+from backend.modules.ocr.schemas import OCRResult, ExtractedFields
 from backend.modules.fraud_intelligence.schemas import FraudMatchResult
 
 class ParallelTaskExecutor:
@@ -26,7 +26,7 @@ class ParallelTaskExecutor:
         # Create fallbacks in case of catastrophic module failure
         # This ensures the pipeline degrades gracefully instead of crashing
         ocr_fallback = OCRResult(
-            fields={"payment_amount": None, "upi_transaction_id": None},
+            fields=ExtractedFields(),
             confidence_score=0.0,
             used_fallback=False
         )

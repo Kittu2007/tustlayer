@@ -13,6 +13,7 @@ class ResultAggregator:
     ) -> TrustScoreInput:
         """
         Translates raw modular outputs into the strict schema required by the Trust Score Engine.
+        Now includes OCR quality signals for dynamic scoring.
         """
         
         # 1. Validate UTR (Basic deterministic check: 12 digits)
@@ -37,6 +38,25 @@ class ResultAggregator:
         if app_forensics.app_authenticity_score < 0.6:
             ai_flags += 1
         
+        # 5. Count successfully extracted fields
+        extractable_fields = [
+            ocr.fields.payment_amount,
+            ocr.fields.receiver_name,
+            ocr.fields.upi_id,
+            ocr.fields.transaction_reference,
+            ocr.fields.payment_app,
+            ocr.fields.timestamp,
+            ocr.fields.payment_status if ocr.fields.payment_status != "UNKNOWN" else None,
+        ]
+        fields_extracted = sum(1 for f in extractable_fields if f)
+        
+        # 6. Combine app detection confidence from OCR and forensics
+        # Use the higher of the two confidence signals
+        combined_app_confidence = max(
+            ocr.fields.app_detection_confidence,
+            app_forensics.app_authenticity_score
+        )
+        
         # Assemble for Phase 4
         return TrustScoreInput(
             upi_transaction_id_valid=is_utr_valid,
@@ -46,6 +66,12 @@ class ResultAggregator:
             
             metadata_anomalies_detected=metadata_anomalies, 
             layout_inconsistencies_detected=layout_flaws,
-            ai_visual_flags=ai_flags
+            ai_visual_flags=ai_flags,
+            
+            # NEW: OCR quality signals for dynamic scoring
+            ocr_confidence=ocr.confidence_score,
+            app_detection_confidence=combined_app_confidence,
+            image_quality_score=ocr.image_quality_score,
+            fields_extracted_count=fields_extracted,
+            fields_total_count=7,
         )
-

@@ -1,3 +1,11 @@
+"""
+TrustLayer AI – NVIDIA NIM Integration Client
+Handles all communication with NVIDIA NIM API endpoints.
+
+v2.1: NvidiaOCRExtractor replaces NemotronOCRProvider as PRIMARY OCR.
+      Uses proper system prompt + image_url format for vision extraction.
+      QwenReasoningProvider and PhiReasoningProvider are UNCHANGED.
+"""
 import base64
 import json
 import re
@@ -5,7 +13,6 @@ import time
 from typing import Dict, List, Any, Optional
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
-from pydantic import BaseModel, ValidationError
 
 from backend.core.config import settings
 from backend.core.ai_orchestrator import VisionProvider, ReasoningProvider
@@ -19,137 +26,153 @@ def _strip_thinking_tags(content: str) -> str:
     cleaned = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
     return cleaned if cleaned else content  # Fallback to original if stripping removes everything
 
-# Pydantic models for OCR response
-class OCRField(BaseModel):
-    label: str
-    value: Optional[str] = ""
-    confidence: Optional[float] = None
 
-class OCRResponse(BaseModel):
-    fields: List[OCRField]
-    raw_text: Optional[str] = None
+def _extract_json_from_content(content: str) -> Optional[Dict]:
+    """Robustly extract JSON from any LLM response format."""
+    content = _strip_thinking_tags(content)
+    # Try 1: Direct JSON parse
+    try:
+        return json.loads(content)
+    except Exception:
+        pass
+    # Try 2: Strip markdown fences
+    clean = re.sub(r'```(?:json)?\s*|```', '', content).strip()
+    try:
+        return json.loads(clean)
+    except Exception:
+        pass
+    # Try 3: Find first {...} block
+    m = re.search(r'\{[\s\S]+\}', content)
+    if m:
+        try:
+            return json.loads(m.group(0))
+        except Exception:
+            pass
+    return None
 
 
-# Pydantic models for reasoning response
-class ReasoningResponse(BaseModel):
-    reasons: List[str]
-    recommendations: List[str]
+# ─── NvidiaOCRExtractor (PRIMARY OCR ENGINE) ─────────────────────────────────
 
+class NvidiaOCRExtractor(VisionProvider):
+    """PRIMARY OCR engine using NVIDIA Nemotron-VL. Always called first.
+    Tesseract is NOT used unless this fails catastrophically."""
 
-class NemotronOCRProvider(VisionProvider):
-    """Vision provider using NVIDIA's Nemotron OCR model."""
+    # System prompt for UPI screenshot extraction
+    SYSTEM_PROMPT = """You are a payment screenshot OCR specialist.
+Your ONLY job is to extract structured data from Indian UPI payment screenshots.
+You MUST respond with ONLY a valid JSON object. No preamble. No explanation.
+No markdown. No ```json``` tags. Just the raw JSON object starting with {.
+
+Extract EXACTLY these fields:
+- payment_amount: The rupee amount (string, include ₹ symbol)
+- receiver_name: Full name of person/business paid
+- upi_id: The UPI VPA (format: anything@bank e.g. 9876543210@ybl)
+- transaction_reference: UTR/Ref ID (12-16 digit number)
+- payment_app: App name (Google Pay / PhonePe / Paytm / BHIM / CRED / Unknown)
+- timestamp: Date and time of transaction as shown
+- payment_status: SUCCESS / FAILED / PENDING / UNKNOWN
+- ui_authenticity: LIKELY_GENUINE / SUSPICIOUS / UNKNOWN
+
+Rules:
+- Use null for fields not visible in the image
+- NEVER invent or guess values not visible in the image
+- Preserve exact text as shown (do not correct typos)
+- For ui_authenticity: LIKELY_GENUINE if layout/branding looks authentic,
+  SUSPICIOUS if fonts/colors/layout look off, UNKNOWN if unclear"""
+
+    USER_PROMPT = """Analyze this UPI payment screenshot.
+Extract payment fields as JSON. Return ONLY the JSON object."""
 
     def __init__(self):
         self.api_url = f"{settings.NVIDIA_BASE_URL}/chat/completions"
-        self.model = settings.OCR_MODEL
-        self.client = httpx.AsyncClient(timeout=30.0)
+        self.model = settings.OCR_MODEL  # nvidia/llama-3.1-nemotron-nano-vl-8b-v1
+        self.client = httpx.AsyncClient(timeout=60.0)  # 60s for vision model
 
     @retry(
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
+        wait=wait_exponential(multiplier=1, min=2, max=15),
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
         reraise=True
     )
-    async def _make_request(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def _make_request(self, payload: Dict) -> Dict:
         headers = {
             "Authorization": f"Bearer {settings.NVIDIA_API_KEY}",
             "Content-Type": "application/json"
         }
         start = time.time()
-        print(f"[TRUSTLAYER-DEBUG] NVIDIA_API: Requesting OCR model '{self.model}'...")
+        print(f"[NVIDIA-OCR] Requesting model '{self.model}'...")
         response = await self.client.post(self.api_url, json=payload, headers=headers)
         response.raise_for_status()
         elapsed = int((time.time() - start) * 1000)
-        print(f"[TRUSTLAYER-DEBUG] NVIDIA_API: Received response from OCR model in {elapsed}ms")
+        print(f"[NVIDIA-OCR] Received response in {elapsed}ms")
         return response.json()
 
     async def extract_fields(self, image_bytes: bytes) -> Dict[str, Any]:
-        """Extract fields from an image using Nemotron OCR."""
-        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
-        
-        # Format as standard OpenAI/NIM multimodal chat completions request
+        """Extract UPI fields from screenshot using NVIDIA Nemotron-VL."""
+        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+
+        # Detect image format from magic bytes
+        if image_bytes[:4] == b"\x89PNG":
+            mime = "image/png"
+        elif image_bytes[:2] == b"\xff\xd8":
+            mime = "image/jpeg"
+        else:
+            mime = "image/png"
+
         payload = {
             "model": self.model,
             "messages": [
+                {
+                    "role": "system",
+                    "content": self.SYSTEM_PROMPT
+                },
                 {
                     "role": "user",
                     "content": [
                         {
                             "type": "text",
-                            "text": (
-                                "You are a precise payment screenshot parser. Extract these details from the screenshot:\n"
-                                "1. payment_amount (float / decimal, or null if not found)\n"
-                                "2. upi_transaction_id (string, or null if not found. Also known as UTR or Ref number)\n"
-                                "3. receiver_name (string, or null if not found)\n"
-                                "4. timestamp (string, or null if not found)\n"
-                                "5. payment_app_name (string, or null if not found, e.g. PhonePe, GPay, Paytm, BHIM)\n\n"
-                                "Return ONLY a valid JSON object matching this schema. Do NOT wrap it in markdown. Do NOT write any conversational text.\n"
-                                "Schema: {\"fields\": [{\"label\": \"payment_amount\", \"value\": \"...\"}, {\"label\": \"upi_transaction_id\", \"value\": \"...\"}], \"raw_text\": \"\"}"
-                            )
+                            "text": self.USER_PROMPT
                         },
                         {
                             "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{image_base64}"
-                            }
+                            "image_url": {"url": f"data:{mime};base64,{image_b64}"}
                         }
                     ]
                 }
             ],
-            "max_tokens": 1000,
-            "temperature": 0.1
+            "max_tokens": 512,
+            "temperature": 0.1,  # Low temp for deterministic extraction
         }
 
         try:
             result = await self._make_request(payload)
-            # Extract content from response choice
             content = result["choices"][0]["message"]["content"]
-            print(f"[TRUSTLAYER-DEBUG] NemotronOCRProvider: Raw AI response: {content[:150]}...")
-            
-            # Clean up potential markdown wrappers
-            cleaned_content = content.replace("```json", "").replace("```", "").strip()
-            
-            parsed = OCRResponse(**json.loads(cleaned_content))
-            fields_dict = {field.label: field.value for field in parsed.fields}
-            if parsed.raw_text:
-                fields_dict["_raw_text"] = parsed.raw_text
-            print(f"[TRUSTLAYER-DEBUG] NemotronOCRProvider: Successfully parsed {len(fields_dict)} fields.")
-            return fields_dict
+            print(f"[NVIDIA-OCR] Raw response: {content[:400]}")
+
+            parsed = _extract_json_from_content(content)
+            if parsed and isinstance(parsed, dict):
+                non_null = len([v for v in parsed.values() if v])
+                print(f"[NVIDIA-OCR] Extracted {non_null} fields")
+                return parsed
+
+            print(f"[NVIDIA-OCR] JSON parse failed, returning empty")
+            return {}
         except Exception as e:
-            print(f"[TRUSTLAYER-DEBUG] NemotronOCRProvider: Primary extraction failed ({e}). Attempting regex fallback extraction...")
-            # Fallback parsing: try to extract JSON from the response text if possible
-            if 'result' in locals() and isinstance(result, dict):
-                # Check for common fields where the AI response might be stored
-                for field in ["choices", "generated_text", "text", "content"]:
-                    if field == "choices":
-                        try:
-                            text_content = result["choices"][0]["message"]["content"]
-                            extracted = self._extract_json_from_text(text_content)
-                            if extracted:
-                                return extracted
-                        except Exception:
-                            pass
-            raise e
+            print(f"[NVIDIA-OCR] FAILED: {e}")
+            raise
 
     async def detect_anomalies(self, image_bytes: bytes) -> List[str]:
-        """Detect anomalies in an image using the OCR model (if supported) or return empty list."""
+        """Anomaly detection handled by AppForensicsEngine."""
         return []
 
-    def _extract_json_from_text(self, text: str) -> Dict[str, Any]:
-        """Attempt to extract JSON from text using regex."""
-        json_match = re.search(r'\{.*\}', text, re.DOTALL)
-        if json_match:
-            try:
-                parsed = json.loads(json_match.group(0))
-                if isinstance(parsed, dict):
-                    # Convert list of fields structure if present
-                    if "fields" in parsed and isinstance(parsed["fields"], list):
-                        return {field["label"]: field["value"] for field in parsed["fields"]}
-                    return parsed
-            except Exception:
-                pass
-        return {}
 
+# Backward compat alias — AIOrchestrator imports NemotronOCRProvider
+NemotronOCRProvider = NvidiaOCRExtractor
+
+
+# ─── REASONING PROVIDERS (UNCHANGED from original) ──────────────────────────
+# QwenReasoningProvider and PhiReasoningProvider are kept EXACTLY as-is.
+# DO NOT modify these classes.
 
 class QwenReasoningProvider(ReasoningProvider):
     """Reasoning provider using NVIDIA's Qwen model."""
