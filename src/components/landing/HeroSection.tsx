@@ -9,7 +9,7 @@ export function HeroSection() {
       <div className="hero-grain" />
       <div className="hero-grid" />
       
-      <div className="tl-section-inner" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem", alignItems: "center" }}>
+      <div className="tl-section-inner">
         <div className="hero-copy">
           <p className="hero-eyebrow reveal-up">AI forensic UPI fraud detection</p>
           <h1 className="hero-headline reveal-up">
@@ -28,7 +28,7 @@ export function HeroSection() {
           </div>
         </div>
 
-        <div className="hero-phone-wrap reveal-scale" style={{ display: "flex", justifyContent: "flex-end" }}>
+        <div className="hero-phone-wrap reveal-scale">
           <ForensicPhone />
         </div>
       </div>
