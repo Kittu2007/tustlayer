@@ -11,10 +11,18 @@ from app.core.config import settings
 from app.core.ai_orchestrator import VisionProvider, ReasoningProvider
 
 
+def _strip_thinking_tags(content: str) -> str:
+    """Strip <think>...</think> blocks that Qwen 3.5 prepends to responses."""
+    if not content:
+        return content
+    # Remove all <think>...</think> blocks (including multiline)
+    cleaned = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
+    return cleaned if cleaned else content  # Fallback to original if stripping removes everything
+
 # Pydantic models for OCR response
 class OCRField(BaseModel):
     label: str
-    value: str
+    value: Optional[str] = ""
     confidence: Optional[float] = None
 
 class OCRResponse(BaseModel):
@@ -185,13 +193,14 @@ class QwenReasoningProvider(ReasoningProvider):
                 }
             ],
             "temperature": 0.5,
-            "max_tokens": 500
+            "max_tokens": 1500
         }
 
         try:
             result = await self._make_request(payload)
             content = result["choices"][0]["message"]["content"]
-            print(f"[TRUSTLAYER-DEBUG] QwenReasoningProvider: Generated content: {content[:100]}...")
+            content = _strip_thinking_tags(content)
+            print(f"[TRUSTLAYER-DEBUG] QwenReasoningProvider: Generated content (post-strip): {content[:150]}...")
             return self._parse_reasoning_response(content)
         except (KeyError, IndexError) as e:
             print(f"[TRUSTLAYER-DEBUG] QwenReasoningProvider: KeyError/IndexError parsing JSON format. Using text extraction fallback.")
@@ -213,12 +222,13 @@ class QwenReasoningProvider(ReasoningProvider):
                 }
             ],
             "temperature": 0.5,
-            "max_tokens": 500
+            "max_tokens": 1500
         }
 
         try:
             result = await self._make_request(payload)
             content = result["choices"][0]["message"]["content"]
+            content = _strip_thinking_tags(content)
             return self._parse_recommendations_response(content)
         except (KeyError, IndexError) as e:
             return self._extract_recommendations_from_text(str(result))
@@ -233,13 +243,19 @@ class QwenReasoningProvider(ReasoningProvider):
         except json.JSONDecodeError:
             pass
         # Fallback: split by lines or bullet points
+        content = _strip_thinking_tags(content)  # Double-safety: strip thinking tags
         lines = content.split('\n')
         reasons = []
         for line in lines:
             line = line.strip()
-            if line and (line.startswith('-') or line.startswith('*') or line.startswith('1.')):
-                reasons.append(line.lstrip('-*. '))
-            elif line and not reasons:
+            # Skip empty lines and any stray XML-like tags
+            if not line or line.startswith('<'):
+                continue
+            if line.startswith('-') or line.startswith('*') or re.match(r'^\d+[.)\]]', line):
+                cleaned = re.sub(r'^[-*\d.)+\]\s]+', '', line).strip()
+                if cleaned:
+                    reasons.append(cleaned)
+            elif not reasons:
                 reasons.append(line)
         return reasons if reasons else [content]
 
@@ -297,12 +313,13 @@ class PhiReasoningProvider(ReasoningProvider):
                 }
             ],
             "temperature": 0.5,
-            "max_tokens": 300
+            "max_tokens": 1000
         }
 
         try:
             result = await self._make_request(payload)
             content = result["choices"][0]["message"]["content"]
+            content = _strip_thinking_tags(content)
             return self._parse_reasoning_response(content)
         except (KeyError, IndexError):
             return ["Phi model: Unable to generate reasons due to formatting issues."]
@@ -322,25 +339,31 @@ class PhiReasoningProvider(ReasoningProvider):
                 }
             ],
             "temperature": 0.5,
-            "max_tokens": 300
+            "max_tokens": 1000
         }
 
         try:
             result = await self._make_request(payload)
             content = result["choices"][0]["message"]["content"]
+            content = _strip_thinking_tags(content)
             return self._parse_recommendations_response(content)
         except (KeyError, IndexError):
             return ["Phi model: Unable to generate recommendations due to formatting issues."]
 
     def _parse_reasoning_response(self, content: str) -> List[str]:
         """Parse reasoning response."""
+        content = _strip_thinking_tags(content)  # Strip thinking tags
         lines = content.split('\n')
         reasons = []
         for line in lines:
             line = line.strip()
-            if line and (line.startswith('-') or line.startswith('*') or re.match(r'^\d+\.', line)):
-                reasons.append(line.lstrip('-*.0123456789. '))
-            elif line and not reasons:
+            if not line or line.startswith('<'):
+                continue
+            if line.startswith('-') or line.startswith('*') or re.match(r'^\d+[.)\]]', line):
+                cleaned = re.sub(r'^[-*\d.)+\]\s]+', '', line).strip()
+                if cleaned:
+                    reasons.append(cleaned)
+            elif not reasons:
                 reasons.append(line)
         return reasons if reasons else [content]
 
