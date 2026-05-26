@@ -61,10 +61,18 @@ export default function ProductPage() {
 
     setIsScanning(true);
     try {
-      // Use the provided mock API endpoint (which is a GET request)
-      const response = await fetch(
-        "https://trust-layer-tool.vercel.app/api/v1/mock/scenario/fraud_template_match"
-      );
+      // Convert base64 data URL to a blob
+      const responseBlob = await fetch(uploadedImage);
+      const blob = await responseBlob.blob();
+      
+      const formData = new FormData();
+      formData.append("file", blob, uploadedName || "screenshot.png");
+
+      const response = await fetch("/api/v1/scan/execute", {
+        method: "POST",
+        body: formData,
+      });
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
