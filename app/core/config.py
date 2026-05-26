@@ -14,8 +14,8 @@ class Settings(BaseSettings):
     NVIDIA_API_KEY: str = os.getenv("NVIDIA_API_KEY", "")
     NVIDIA_BASE_URL: str = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
     QWEN_MODEL: str = os.getenv("QWEN_MODEL", "qwen3.5-122b-a10b")
-    OCR_MODEL: str = os.getenv("OCR_MODEL", "nemotron-ocr-v1")
-    FALLBACK_MODEL: str = os.getenv("FALLBACK_MODEL", "phi-4-mini-instruct")
+    OCR_MODEL: str = os.getenv("OCR_MODEL", "nvidia/llama-3.1-nemotron-nano-vl-8b-v1")
+    FALLBACK_MODEL: str = os.getenv("FALLBACK_MODEL", "microsoft/phi-4-mini-instruct")
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 
     class Config:
