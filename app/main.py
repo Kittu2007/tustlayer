@@ -599,7 +599,7 @@ async def homepage():
                     consoleEl.innerHTML = JSON.stringify(data, null, 2);
                     consoleEl.style.color = "#34D399"; // Success green
                 } catch (error) {
-                    consoleEl.innerHTML = \`Error: \${error.message}\`;
+                    consoleEl.innerHTML = `Error: ${error.message}`;
                     consoleEl.style.color = "#EF4444"; // Error red
                     timingBadge.innerText = "Scan Failed";
                 } finally {

@@ -46,8 +46,8 @@
             resultsDiv.innerHTML = '<span class="loading">Executing TrustLayer Scan Pipeline (OCR -> Engine -> Reasoning)...</span>';
 
             try {
-                // Ensure your FastAPI app has CORS enabled for local testing!
-                const response = await fetch('http://localhost:8000/api/v1/scan/execute', {
+                // Targeting the live Vercel endpoint
+                const response = await fetch('https://trust-layer-tool.vercel.app/api/v1/scan/execute', {
                     method: 'POST',
                     body: formData
                 });
