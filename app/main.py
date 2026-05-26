@@ -260,9 +260,10 @@ async def homepage():
                 background: rgba(255, 255, 255, 0.01);
             }
 
-            .dropzone:hover {
+            .dropzone:hover, .dropzone.highlight {
                 border-color: var(--primary);
-                background: rgba(59, 130, 246, 0.03);
+                background: rgba(59, 130, 246, 0.05);
+                box-shadow: 0 0 15px rgba(59, 130, 246, 0.1);
             }
 
             .dropzone svg {
@@ -273,7 +274,7 @@ async def homepage():
                 transition: stroke 0.3s ease;
             }
 
-            .dropzone:hover svg {
+            .dropzone:hover svg, .dropzone.highlight svg {
                 stroke: var(--primary);
             }
 
@@ -507,19 +508,57 @@ async def homepage():
         <script>
             let selectedFile = null;
 
+            const dropzone = document.getElementById('dropzone');
+            const fileInput = document.getElementById('fileInput');
+
+            // Prevent default drag behaviors
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropzone.addEventListener(eventName, preventDefaults, false);
+                document.body.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            // Toggle highlight styles when item is dragged over the zone
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropzone.addEventListener(eventName, () => dropzone.classList.add('highlight'), false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropzone.addEventListener(eventName, () => dropzone.classList.remove('highlight'), false);
+            });
+
+            // Handle dropped files
+            dropzone.addEventListener('drop', handleDrop, false);
+
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length) {
+                    fileInput.files = files;
+                    handleFile(files[0]);
+                }
+            }
+
             function handleFileSelect(event) {
                 const file = event.target.files[0];
                 if (file) {
-                    selectedFile = file;
-                    
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        document.getElementById('previewImg').src = e.target.result;
-                        document.getElementById('previewContainer').style.display = 'block';
-                        document.getElementById('scanBtn').disabled = false;
-                    };
-                    reader.readAsDataURL(file);
+                    handleFile(file);
                 }
+            }
+
+            function handleFile(file) {
+                selectedFile = file;
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('previewImg').src = e.target.result;
+                    document.getElementById('previewContainer').style.display = 'block';
+                    document.getElementById('scanBtn').disabled = false;
+                };
+                reader.readAsDataURL(file);
             }
 
             async function runForensicScan() {
