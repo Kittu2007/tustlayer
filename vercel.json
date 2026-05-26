@@ -7,17 +7,23 @@
   },
   "env": {
     "PYTHON_VERSION": "3.12",
-    "PYO3_USE_ABI3_FORWARD_COMPATIBILITY": "1"
+    "PYO3_USE_ABI3_FORWARD_COMPATIBILITY": "1",
+    "NVIDIA_API_KEY": "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",
+    "NVIDIA_BASE_URL": "https://integrate.api.nvidia.com/v1",
+    "OCR_MODEL": "nvidia/llama-3.1-nemotron-nano-vl-8b-v1",
+    "QWEN_MODEL": "qwen/qwen3.5-122b-a10b",
+    "FALLBACK_MODEL": "microsoft/phi-4-mini-instruct",
+    "SUPABASE_URL": "https://iqanvjvfofssbzqrqswd.supabase.co",
+    "SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlxYW52anZmb2Zzc2J6cXJxc3dkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTY2MTUsImV4cCI6MjA5NTI5MjYxNX0.gvuUcdsgFyFaEXSdZJAuEriID-N4YPKEC28nJN3da-s"
   },
   "functions": {
     "api/**/*.py": {
-      "runtime": "@vercel/python",
-      "includeFiles": "backend/**"
+      "runtime": "@vercel/python"
     }
   },
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/api/:path*",
       "destination": "/api/index.py"
     }
   ]
