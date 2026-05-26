@@ -2,13 +2,20 @@ import sys
 import os
 import traceback
 
-# Add the project root to sys.path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 error_traceback = None
 app = None
 
 try:
+    # Safely get current file path with NameError fallback
+    try:
+        current_file = __file__
+    except NameError:
+        current_file = os.path.join(os.getcwd(), "api", "index.py")
+        
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(current_file)))
+    if project_root not in sys.path:
+        sys.path.append(project_root)
+        
     from backend.main import app as real_app
     app = real_app
 except Exception as e:
@@ -21,9 +28,9 @@ if app is None:
     
     app = FastAPI(title="TrustLayer AI - Startup Error Diagnoser")
     
-    @app.get("/{path:path}", response_class=HTMLResponse)
+    @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
     async def diagnose_error(path: str):
-        return f"""
+        return HTMLResponse(content=f"""
         <html>
         <head>
             <title>TrustLayer AI - Startup Diagnosis</title>
@@ -39,4 +46,4 @@ if app is None:
             <pre>{error_traceback}</pre>
         </body>
         </html>
-        """
+        """)
