@@ -3,4 +3,4 @@ import os
 # Add the project root to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.main import app
+from backend.main import app
