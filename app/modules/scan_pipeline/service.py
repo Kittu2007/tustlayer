@@ -55,14 +55,6 @@ class ScanPipelineService:
         asyncio.create_task(save_scan_result_async(final_response.model_dump()))
         
         return final_response
-            metadata=ScanMetadata(
-                execution_time_ms=execution_ms,
-                modules_executed=["OCR", "FraudIntelligence", "Metadata", "TrustScore"]
-            ),
-            trust_score_data=trust_result,
-            ocr_data=ocr_result,
-            fraud_intelligence_data=fraud_result
-        )
         
     async def stream_full_scan(
         self, 
