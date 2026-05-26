@@ -32,9 +32,9 @@ class NemotronOCRProvider(VisionProvider):
     """Vision provider using NVIDIA's Nemotron OCR model."""
 
     def __init__(self):
-        self.api_url = f"{settings.NVIDIA_BASE_URL}/vision/ocr"
+        self.api_url = f"{settings.NVIDIA_BASE_URL}/chat/completions"
         self.model = settings.OCR_MODEL
-        self.client = httpx.AsyncClient(timeout=10.0)
+        self.client = httpx.AsyncClient(timeout=30.0)
 
     @retry(
         stop=stop_after_attempt(3),
@@ -57,57 +57,89 @@ class NemotronOCRProvider(VisionProvider):
 
     async def extract_fields(self, image_bytes: bytes) -> Dict[str, Any]:
         """Extract fields from an image using Nemotron OCR."""
-        # Prepare the payload for the OCR model
-        # Encode image bytes to base64 string as required by most APIs
         image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+        
+        # Format as standard OpenAI/NIM multimodal chat completions request
         payload = {
             "model": self.model,
-            "input": {
-                "image": image_base64
-            }
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "You are a precise payment screenshot parser. Extract these details from the screenshot:\n"
+                                "1. payment_amount (float / decimal, or null if not found)\n"
+                                "2. upi_transaction_id (string, or null if not found. Also known as UTR or Ref number)\n"
+                                "3. receiver_name (string, or null if not found)\n"
+                                "4. timestamp (string, or null if not found)\n"
+                                "5. payment_app_name (string, or null if not found, e.g. PhonePe, GPay, Paytm, BHIM)\n\n"
+                                "Return ONLY a valid JSON object matching this schema. Do NOT wrap it in markdown. Do NOT write any conversational text.\n"
+                                "Schema: {\"fields\": [{\"label\": \"payment_amount\", \"value\": \"...\"}, {\"label\": \"upi_transaction_id\", \"value\": \"...\"}], \"raw_text\": \"\"}"
+                            )
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_base64}"
+                            }
+                        }
+                    ]
+                }
+            ],
+            "max_tokens": 1000,
+            "temperature": 0.1
         }
 
         try:
             result = await self._make_request(payload)
-            # Parse and validate the response using Pydantic
-            parsed = OCRResponse(**result)
-            # Convert to the expected dictionary format
+            # Extract content from response choice
+            content = result["choices"][0]["message"]["content"]
+            print(f"[TRUSTLAYER-DEBUG] NemotronOCRProvider: Raw AI response: {content[:150]}...")
+            
+            # Clean up potential markdown wrappers
+            cleaned_content = content.replace("```json", "").replace("```", "").strip()
+            
+            parsed = OCRResponse(**json.loads(cleaned_content))
             fields_dict = {field.label: field.value for field in parsed.fields}
             if parsed.raw_text:
                 fields_dict["_raw_text"] = parsed.raw_text
             print(f"[TRUSTLAYER-DEBUG] NemotronOCRProvider: Successfully parsed {len(fields_dict)} fields.")
             return fields_dict
-        except (ValidationError, KeyError) as e:
-            print("[TRUSTLAYER-DEBUG] NemotronOCRProvider: Validation error on strict JSON parsing. Attempting regex fallback extraction...")
+        except Exception as e:
+            print(f"[TRUSTLAYER-DEBUG] NemotronOCRProvider: Primary extraction failed ({e}). Attempting regex fallback extraction...")
             # Fallback parsing: try to extract JSON from the response text if possible
-            if isinstance(result, dict):
+            if 'result' in locals() and isinstance(result, dict):
                 # Check for common fields where the AI response might be stored
-                for field in ["generated_text", "text", "content", "message"]:
-                    if field in result and isinstance(result[field], str):
-                        extracted = self._extract_json_from_text(result[field])
-                        if extracted:  # Only return if we actually found JSON
-                            print("[TRUSTLAYER-DEBUG] NemotronOCRProvider: Regex fallback extraction succeeded.")
-                            return extracted
-            # If we still have no structured data, raise the original error
-            print(f"[TRUSTLAYER-DEBUG] NemotronOCRProvider: Fallback extraction failed. Error: {e}")
+                for field in ["choices", "generated_text", "text", "content"]:
+                    if field == "choices":
+                        try:
+                            text_content = result["choices"][0]["message"]["content"]
+                            extracted = self._extract_json_from_text(text_content)
+                            if extracted:
+                                return extracted
+                        except Exception:
+                            pass
             raise e
 
     async def detect_anomalies(self, image_bytes: bytes) -> List[str]:
         """Detect anomalies in an image using the OCR model (if supported) or return empty list."""
-        # For now, we don't have an anomaly detection endpoint, so we return empty.
-        # Alternatively, we could use the same OCR to look for suspicious patterns.
         return []
 
     def _extract_json_from_text(self, text: str) -> Dict[str, Any]:
         """Attempt to extract JSON from text using regex."""
-        # Look for JSON-like patterns
         json_match = re.search(r'\{.*\}', text, re.DOTALL)
         if json_match:
             try:
-                return json.loads(json_match.group(0))
-            except json.JSONDecodeError:
+                parsed = json.loads(json_match.group(0))
+                if isinstance(parsed, dict):
+                    # Convert list of fields structure if present
+                    if "fields" in parsed and isinstance(parsed["fields"], list):
+                        return {field["label"]: field["value"] for field in parsed["fields"]}
+                    return parsed
+            except Exception:
                 pass
-        # If no JSON found, return an empty dict or raise an error
         return {}
 
 
@@ -117,7 +149,7 @@ class QwenReasoningProvider(ReasoningProvider):
     def __init__(self):
         self.api_url = f"{settings.NVIDIA_BASE_URL}/chat/completions"
         self.model = settings.QWEN_MODEL
-        self.client = httpx.AsyncClient(timeout=10.0)
+        self.client = httpx.AsyncClient(timeout=30.0)
 
     @retry(
         stop=stop_after_attempt(3),
@@ -233,7 +265,7 @@ class PhiReasoningProvider(ReasoningProvider):
     def __init__(self):
         self.api_url = f"{settings.NVIDIA_BASE_URL}/chat/completions"
         self.model = settings.FALLBACK_MODEL
-        self.client = httpx.AsyncClient(timeout=10.0)
+        self.client = httpx.AsyncClient(timeout=30.0)
 
     @retry(
         stop=stop_after_attempt(3),
