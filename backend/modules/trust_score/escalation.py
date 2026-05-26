@@ -52,6 +52,10 @@ class RiskEscalationLayer:
         # ESCALATION RULE 2: Multiple layout flaws AND visual flags (Clear Tampering)
         if data.layout_inconsistencies_detected >= 2 and data.ai_visual_flags >= 2:
             return (15.0, RiskLevel.HIGH, 0.85, "Likely Fake")
+            
+        # ESCALATION RULE 3: EXIF/Metadata Software editing tampering detected (Absolute Override)
+        if data.metadata_anomalies_detected >= 2:
+            return (5.0, RiskLevel.HIGH, 0.98, "Likely Fake")
         
         # ================================================================
         # SOFT ESCALATION: Decouple OCR failure from fraud

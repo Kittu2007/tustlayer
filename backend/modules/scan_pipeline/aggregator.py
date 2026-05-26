@@ -31,12 +31,31 @@ class ResultAggregator:
         if app_forensics.layout_consistency == "LOW":
             layout_flaws += 1
             
+        # Hard UTR format violation check
+        # If a transaction reference is extracted but is invalid (e.g. not 12 digits), it's highly suspicious!
+        utr_format_violation = bool(utr and not is_utr_valid)
+        if utr_format_violation:
+            layout_flaws += 2
+            
+        # Check for foreign currency symbols (absolute fake UPI indicator)
+        raw_text_lower = (ocr.raw_text or "").lower()
+        amount_str = (ocr.fields.payment_amount or "").lower()
+        has_foreign_currency = any(symbol in raw_text_lower or symbol in amount_str for symbol in ["$", "€", "£", "dollar", "eur", "usd"])
+        if has_foreign_currency:
+            layout_flaws += 2
+            
         # 4. Dynamic AI visual flags
         ai_flags = 0
         if app_forensics.font_consistency in ["SUSPICIOUS", "INCONSISTENT"]:
             ai_flags += 1
         if app_forensics.app_authenticity_score < 0.6:
             ai_flags += 1
+        if ocr.fields.ui_authenticity == "SUSPICIOUS":
+            ai_flags += 1
+            
+        # If UTR violation or foreign currency is detected, flag it in AI flags as well to trigger escalation
+        if utr_format_violation or has_foreign_currency:
+            ai_flags += 2
         
         # 5. Count successfully extracted fields
         extractable_fields = [

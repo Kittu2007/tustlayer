@@ -87,11 +87,13 @@ class NvidiaFirstOCREngine:
         print(f"[OCR-ENGINE] Image quality: {quality_score:.2f}")
 
         # ── STEP 1: NVIDIA Nemotron-VL (PRIMARY) ─────────────────────────
+        raw_text_extracted = None
         try:
             extractor = NvidiaOCRExtractor()
             raw_fields = await extractor.extract_fields(image_bytes)
             fields = _map_nvidia_response_to_fields(raw_fields)
             confidence = calculate_weighted_confidence(fields)
+            raw_text_extracted = raw_fields.get("raw_text_content")
             print(f"[OCR-ENGINE] NVIDIA confidence: {confidence:.2f}")
 
             # ── STEP 2: Tesseract targeted recovery (only if NVIDIA mostly failed) ──
@@ -102,31 +104,33 @@ class NvidiaFirstOCREngine:
 
             if extracted_count < 2:
                 print("[OCR-ENGINE] NVIDIA got <2 fields, trying Tesseract recovery")
-                fields = self._tesseract_recovery(image_bytes, fields)
+                fields, raw_text_extracted = self._tesseract_recovery(image_bytes, fields)
                 confidence = calculate_weighted_confidence(fields)
 
             return OCRResult(
                 fields=fields,
                 confidence_score=confidence,
                 used_fallback=False,
+                raw_text=raw_text_extracted,
                 image_quality_score=quality_score,
                 ocr_pass_count=1,
             )
 
         except Exception as e:
             print(f"[OCR-ENGINE] NVIDIA FAILED: {e}. Using Tesseract fallback.")
-            fields = self._tesseract_recovery(image_bytes, ExtractedFields())
+            fields, raw_text_extracted = self._tesseract_recovery(image_bytes, ExtractedFields())
             confidence = calculate_weighted_confidence(fields)
             return OCRResult(
                 fields=fields,
                 confidence_score=max(confidence, 0.1),
                 used_fallback=True,
+                raw_text=raw_text_extracted,
                 image_quality_score=quality_score,
                 ocr_pass_count=1,
             )
 
-    def _tesseract_recovery(self, image_bytes: bytes, fields: ExtractedFields) -> ExtractedFields:
-        """Try Tesseract for specific missing fields only."""
+    def _tesseract_recovery(self, image_bytes: bytes, fields: ExtractedFields) -> tuple:
+        """Try Tesseract for specific missing fields only. Returns (fields, raw_text)."""
         try:
             import pytesseract
             img = Image.open(io.BytesIO(image_bytes))
@@ -134,10 +138,10 @@ class NvidiaFirstOCREngine:
             img = img.resize((img.width * 2, img.height * 2), Image.Resampling.LANCZOS)
             text = pytesseract.image_to_string(img)
             print(f"[TESSERACT-RECOVERY] Extracted {len(text)} chars")
-            return self._parse_tesseract_fields(text, fields)
+            return self._parse_tesseract_fields(text, fields), text
         except Exception as e:
             print(f"[TESSERACT-RECOVERY] Failed: {e}")
-            return fields
+            return fields, None
 
     def _parse_tesseract_fields(self, text: str, fields: ExtractedFields) -> ExtractedFields:
         """Extract only missing fields from Tesseract text."""

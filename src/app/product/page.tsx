@@ -102,7 +102,7 @@ export default function ProductPage() {
   
   <text x="180" y="205" font-family="sans-serif" font-size="13" fill="#9ca3af" text-anchor="middle">Paid to</text>
   <text x="180" y="232" font-family="sans-serif" font-size="20" font-weight="bold" fill="white" text-anchor="middle">ONNARAM SHIVA</text>
-  <text x="180" y="285" font-family="sans-serif" font-size="36" font-weight="900" fill="#dbff4a" text-anchor="middle">₹150</text>
+  <text x="180" y="285" font-family="sans-serif" font-size="36" font-weight="900" fill="#dbff4a" text-anchor="middle">&#8377;150</text>
   
   <rect x="20" y="325" width="320" height="1" fill="#ffffff" opacity="0.1"/>
   
@@ -124,7 +124,7 @@ export default function ProductPage() {
   <text x="180" y="582" font-family="sans-serif" font-size="11" fill="#9ca3af" text-anchor="middle">Powered by PhonePe</text>
 </svg>`;
 
-    const base64Svg = `data:image/svg+xml;base64,${btoa(demoSvg)}`;
+    const base64Svg = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(demoSvg)))}`;
     setUploadedImage(base64Svg);
   };
 

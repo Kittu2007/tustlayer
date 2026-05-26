@@ -232,7 +232,13 @@ export function ResultsPanel({ results, isScanning }: ResultsPanelProps) {
         </h4>
         <div className="result-row">
           <span className="label">Amount</span>
-          <span className="value">&#8377;{ocr_data.fields.payment_amount || "N/A"}</span>
+          <span className="value">
+            {ocr_data.fields.payment_amount
+              ? (/^[₹$€£]|^(?:Rs\.?|INR)/i.test(ocr_data.fields.payment_amount)
+                ? ocr_data.fields.payment_amount
+                : `₹${ocr_data.fields.payment_amount}`)
+              : "N/A"}
+          </span>
         </div>
         <div className="result-row">
           <span className="label">Transaction ID</span>
@@ -284,16 +290,36 @@ export function ResultsPanel({ results, isScanning }: ResultsPanelProps) {
 
       <div className="result-block">
         <h4 className="result-block-title">AI Reasoning</h4>
-        {trust_score_data.confidence_reasoning.map((reason, idx) => (
-          <p key={idx} className="result-reason">{reason}</p>
-        ))}
+        <ul style={{ paddingLeft: "16px", margin: "8px 0 0 0", listStyleType: "disc" }}>
+          {trust_score_data.confidence_reasoning.length > 0 ? (
+            trust_score_data.confidence_reasoning.map((reason, idx) => (
+              <li key={idx} className="result-reason" style={{ fontSize: "0.80rem", color: "var(--foreground-dim)", lineHeight: "1.4", marginBottom: "6px" }}>
+                {reason}
+              </li>
+            ))
+          ) : (
+            <li className="result-reason" style={{ fontSize: "0.80rem", color: "var(--foreground-dim)", lineHeight: "1.4", listStyleType: "none", marginLeft: "-16px" }}>
+              Standard verification checks passed successfully.
+            </li>
+          )}
+        </ul>
       </div>
 
       <div className="result-block">
         <h4 className="result-block-title">Recommended Actions</h4>
-        {trust_score_data.recommended_actions.map((action, idx) => (
-          <p key={idx} className="result-action">{action}</p>
-        ))}
+        <ul style={{ paddingLeft: "16px", margin: "8px 0 0 0", listStyleType: "square" }}>
+          {trust_score_data.recommended_actions.length > 0 ? (
+            trust_score_data.recommended_actions.map((action, idx) => (
+              <li key={idx} className="result-action" style={{ fontSize: "0.80rem", color: "var(--foreground-dim)", lineHeight: "1.4", marginBottom: "6px" }}>
+                {action}
+              </li>
+            ))
+          ) : (
+            <li className="result-action" style={{ fontSize: "0.80rem", color: "var(--foreground-dim)", lineHeight: "1.4", marginBottom: "6px" }}>
+              Verify transaction UTR and receiver credentials directly in your banking app before releasing goods.
+            </li>
+          )}
+        </ul>
       </div>
       
       <div className="result-block">

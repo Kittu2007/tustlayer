@@ -30,9 +30,9 @@ class ScanPipelineService:
         # 1. Parallel Execution
         ocr_result, fraud_result = await self.executor.execute_all(image_bytes)
         
-        # 2. Payment App Detection Layer
+        # 2. Payment App Detection Layer (passing Vision-extracted payment_app)
         app_forensics_result = await self.app_forensics_service.analyze_image(
-            image_bytes, ocr_result.raw_text or ""
+            image_bytes, ocr_result.raw_text or "", ocr_result.fields.payment_app
         )
         
         # 3. Synchronous Metadata Check
@@ -88,7 +88,7 @@ class ScanPipelineService:
         yield f'data: {json.dumps({"status": "processing", "step": "app_detection", "message": "Verifying authentic app templates and logo footprints..."})}\n\n'
         await asyncio.sleep(0.5)
         app_forensics_result = await self.app_forensics_service.analyze_image(
-            image_bytes, ocr_result.raw_text or ""
+            image_bytes, ocr_result.raw_text or "", ocr_result.fields.payment_app
         )
         
         yield f'data: {json.dumps({"status": "processing", "step": "scan_complete", "message": "Scans complete. Aggregating results..."})}\n\n'

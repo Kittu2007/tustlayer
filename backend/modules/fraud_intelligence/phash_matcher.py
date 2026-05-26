@@ -12,20 +12,28 @@ class FraudIntelligenceEngine:
         self.exact_match_threshold = exact_match_threshold
 
     def generate_phash(self, image_bytes: bytes) -> str:
-        """Generates a robust pure-Python average image hash (aHash)."""
+        """Generates a robust Difference Hash (dHash) to capture structural layout and borders."""
         try:
             image = Image.open(io.BytesIO(image_bytes))
-            # Convert to grayscale and resize to 8x8
-            image = image.convert('L').resize((8, 8), Image.Resampling.LANCZOS)
+            # Resize to 9x8 and convert to grayscale. 
+            # We resize to 9 width so we can compare adjacent horizontal pixels (giving 8 differences per row).
+            image = image.convert('L').resize((9, 8), Image.Resampling.LANCZOS)
             pixels = list(image.getdata())
-            avg = sum(pixels) / 64
-            # Generate 64-bit boolean hash
-            bits = ''.join(['1' if pixel >= avg else '0' for pixel in pixels])
-            # Convert bits to 16-character hex string
-            hex_str = f"{int(bits, 2):016x}"
+            
+            # Calculate horizontal differences between adjacent pixels:
+            # 8 rows of 9 pixels -> 8 rows of 8 differences = 64 bits.
+            bits = []
+            for row in range(8):
+                for col in range(8):
+                    pixel_left = pixels[row * 9 + col]
+                    pixel_right = pixels[row * 9 + col + 1]
+                    bits.append('1' if pixel_left > pixel_right else '0')
+                    
+            bit_str = ''.join(bits)
+            hex_str = f"{int(bit_str, 2):016x}"
             return hex_str
         except Exception as e:
-            raise ValueError(f"Failed to process image for hashing: {e}")
+            raise ValueError(f"Failed to process image for dHash: {e}")
 
     def calculate_distance(self, hash1: str, hash2: str) -> int:
         """Calculates Hamming distance between two hex hash strings in pure Python."""
