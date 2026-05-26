@@ -5,6 +5,7 @@ import time
 from app.modules.ocr.schemas import OCRResult
 from app.modules.fraud_intelligence.schemas import FraudMatchResult
 from app.modules.trust_score.schemas import TrustScoreResult
+from app.modules.app_forensics.schemas import AppForensicsResult
 
 class ScanMetadata(BaseModel):
     execution_time_ms: int
@@ -24,8 +25,10 @@ class FinalScanResponse(BaseModel):
     # Supporting Evidence
     ocr_data: OCRResult
     fraud_intelligence_data: FraudMatchResult
+    app_forensics: Optional[AppForensicsResult] = None
 
     # Session & Rate Limit Context
     anonymous_session_id: Optional[str] = None
     remaining_scans: int = Field(-1, description="Scans remaining for guest, or -1 if authenticated")
+
 

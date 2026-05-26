@@ -11,6 +11,7 @@ from app.integrations.supabase_client import save_scan_result_async
 from app.modules.ocr.service import get_ocr_service
 from app.modules.fraud_intelligence.service import get_fraud_intelligence_service
 from app.modules.trust_score.service import get_final_decision_assembler
+from app.modules.app_forensics.service import get_app_forensics_service
 
 class ScanPipelineService:
     def __init__(self):
@@ -18,6 +19,7 @@ class ScanPipelineService:
             ocr_service=get_ocr_service(),
             fraud_service=get_fraud_intelligence_service()
         )
+        self.app_forensics_service = get_app_forensics_service()
         self.aggregator = ResultAggregator()
         self.trust_engine = get_final_decision_assembler()
         self.metadata_service = MetadataService()
@@ -28,27 +30,35 @@ class ScanPipelineService:
         # 1. Parallel Execution
         ocr_result, fraud_result = await self.executor.execute_all(image_bytes)
         
-        # 2. Synchronous Metadata Check
+        # 2. Payment App Detection Layer
+        app_forensics_result = await self.app_forensics_service.analyze_image(
+            image_bytes, ocr_result.raw_text or ""
+        )
+        
+        # 3. Synchronous Metadata Check
         metadata_anomalies = self.metadata_service.extract_anomalies(image_bytes)
         
-        # 3. Normalize inputs for Trust Engine
-        trust_input = self.aggregator.normalize_to_trust_input(ocr_result, fraud_result, metadata_anomalies)
+        # 4. Normalize inputs for Trust Engine
+        trust_input = self.aggregator.normalize_to_trust_input(
+            ocr_result, fraud_result, metadata_anomalies, app_forensics_result
+        )
         
-        # 4. Final Trust Decision
+        # 5. Final Trust Decision
         trust_result = await self.trust_engine.evaluate(trust_input)
         
-        # 5. Cinematic Assembly
+        # 6. Cinematic Assembly
         execution_ms = int((time.time() - start_time) * 1000)
         
         final_response = FinalScanResponse(
             success=True,
             metadata=ScanMetadata(
                 execution_time_ms=execution_ms,
-                modules_executed=["OCR", "FraudIntelligence", "Metadata", "TrustScore"]
+                modules_executed=["OCR", "AppForensics", "FraudIntelligence", "Metadata", "TrustScore"]
             ),
             trust_score_data=trust_result,
             ocr_data=ocr_result,
-            fraud_intelligence_data=fraud_result
+            fraud_intelligence_data=fraud_result,
+            app_forensics=app_forensics_result
         )
         
         # Async background save to database (will instantly fail silently if no keys)
@@ -69,29 +79,39 @@ class ScanPipelineService:
         yield f'data: {json.dumps({"status": "processing", "step": "starting", "message": "Initializing TrustLayer Pipeline..."})}\n\n'
         await asyncio.sleep(0.5) # Artificial delay for cinematic effect
         
-        # 1. Run parallel tasks
+        # 1. Run parallel tasks (OCR and Fraud checks)
         yield f'data: {json.dumps({"status": "processing", "step": "scanning", "message": "Running OCR and Fraud scans concurrently..."})}\n\n'
         ocr_result, fraud_result = await self.executor.execute_all(image_bytes)
         metadata_anomalies = self.metadata_service.extract_anomalies(image_bytes)
         
+        # 2. Run App Detection Layer
+        yield f'data: {json.dumps({"status": "processing", "step": "app_detection", "message": "Verifying authentic app templates and logo footprints..."})}\n\n'
+        await asyncio.sleep(0.5)
+        app_forensics_result = await self.app_forensics_service.analyze_image(
+            image_bytes, ocr_result.raw_text or ""
+        )
+        
         yield f'data: {json.dumps({"status": "processing", "step": "scan_complete", "message": "Scans complete. Aggregating results..."})}\n\n'
         await asyncio.sleep(0.5)
         
-        # 2. Final Trust Decision
-        trust_input = self.aggregator.normalize_to_trust_input(ocr_result, fraud_result, metadata_anomalies)
+        # 3. Final Trust Decision
+        trust_input = self.aggregator.normalize_to_trust_input(
+            ocr_result, fraud_result, metadata_anomalies, app_forensics_result
+        )
         trust_result = await self.trust_engine.evaluate(trust_input)
         
-        # 3. Assemble Final Payload
+        # 4. Assemble Final Payload
         execution_ms = int((time.time() - start_time) * 1000)
         final_response = FinalScanResponse(
             success=True,
             metadata=ScanMetadata(
                 execution_time_ms=execution_ms,
-                modules_executed=["OCR", "FraudIntelligence", "Metadata", "TrustScore"]
+                modules_executed=["OCR", "AppForensics", "FraudIntelligence", "Metadata", "TrustScore"]
             ),
             trust_score_data=trust_result,
             ocr_data=ocr_result,
             fraud_intelligence_data=fraud_result,
+            app_forensics=app_forensics_result,
             anonymous_session_id=session_id,
             remaining_scans=remaining_scans
         )
