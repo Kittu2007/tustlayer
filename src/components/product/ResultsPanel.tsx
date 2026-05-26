@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useEffect } from "react";
+
 type ScanResponse = {
   success: boolean;
   metadata: { execution_time_ms: number; modules_executed: string[] };
@@ -35,6 +37,7 @@ type ScanResponse = {
 
 type ResultsPanelProps = {
   results: ScanResponse;
+  isScanning?: boolean;
 };
 
 function getVerdictStyle(verdict: string): { color: string; icon: string } {
@@ -67,7 +70,74 @@ function getQualityBadgeStyle(label: string): { bg: string; text: string } {
   return { bg: "rgba(255, 100, 80, 0.10)", text: "#ff6450" };
 }
 
-export function ResultsPanel({ results }: ResultsPanelProps) {
+export function ResultsPanel({ results, isScanning }: ResultsPanelProps) {
+  const [activeStep, setActiveStep] = useState(0);
+
+  useEffect(() => {
+    if (!isScanning) {
+      setActiveStep(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setActiveStep((prev) => (prev < 4 ? prev + 1 : prev));
+    }, 1200);
+    return () => clearInterval(interval);
+  }, [isScanning]);
+
+  if (isScanning) {
+    const steps = [
+      { icon: "🔍", title: "NVIDIA Nemotron-VL Core OCR", desc: "Extracting transaction parameters, UPI handles & timestamps..." },
+      { icon: "🧠", title: "Qwen 3.5-122B Reasoning Engine", desc: "Analyzing layout metadata, font properties, and digital anomalies..." },
+      { icon: "🛡️", title: "Forensic Image & Color Profiling", desc: "Auditing pixel compression structures and image authenticity..." },
+      { icon: "🔒", title: "Fraud Intelligence Hashing Check", desc: "Checking template matches, known fraudulent VPA targets & hashes..." }
+    ];
+
+    return (
+      <div className="product-panel results-panel" style={{ padding: "32px", display: "flex", flexDirection: "column", gap: "20px" }}>
+        <div className="product-panel-header" style={{ borderBottom: "none", marginBottom: "0px" }}>
+          <span className="dot" style={{ backgroundColor: "var(--signal)", boxShadow: "0 0 12px var(--signal)" }} /> Active Scan Diagnostics
+        </div>
+        
+        {/* Radar Spinner */}
+        <div style={{ display: "grid", placeItems: "center", margin: "14px 0" }}>
+          <div className="radar-scanner">
+            <div className="radar-sweep" />
+            <div className="radar-ping" />
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.78rem", fontWeight: 900, color: "var(--signal)", letterSpacing: "0.14em", zIndex: 6 }}>
+              {activeStep < 4 ? "RUNNING" : "RESOLVING"}
+            </span>
+          </div>
+        </div>
+
+        {/* Dynamic Scan Steps */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          {steps.map((step, idx) => {
+            const isCompleted = idx < activeStep;
+            const isActive = idx === activeStep;
+            const isPending = idx > activeStep;
+
+            return (
+              <div 
+                key={idx} 
+                className={`scanning-step ${isCompleted ? "completed" : isActive ? "active" : "pending"}`}
+                style={{ opacity: isPending ? 0.38 : 1 }}
+              >
+                <span className="step-icon">{step.icon}</span>
+                <div className="step-content">
+                  <strong>{step.title}</strong>
+                  <p>{step.desc}</p>
+                </div>
+                {isCompleted && <div className="step-checkmark">✓</div>}
+                {isActive && <div className="scanning-spinner" />}
+                {isPending && <div style={{ width: "10px", height: "10px", border: "1px solid var(--border)", borderRadius: "50%", alignSelf: "center", marginRight: "3px" }} />}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   if (!results) {
     return (
       <div className="product-panel results-panel" style={{ display: "grid", placeItems: "center", minHeight: "300px", padding: "20px", textAlign: "center", color: "var(--foreground-dim)" }}>

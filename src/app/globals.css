@@ -1304,6 +1304,173 @@ body {
   100% { top: 92%; }
 }
 
+
+/* ═══════════════════════════════════════════════════
+   RADAR & SCANNING LOADING ANIMATIONS
+   ═══════════════════════════════════════════════════ */
+
+.scanning-laser-line {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, var(--signal) 15%, var(--signal) 85%, transparent);
+  box-shadow: 0 0 16px var(--signal), 0 0 28px var(--signal-glow);
+  z-index: 5;
+  animation: scanLaserAnimation 2s linear infinite;
+}
+
+@keyframes scanLaserAnimation {
+  0% { top: 0%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+@keyframes pulseScan {
+  0% { opacity: 0.38; }
+  100% { opacity: 0.76; }
+}
+
+/* Radar Scanner Animation */
+.radar-scanner {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  border: 1px solid rgba(219, 255, 74, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, rgba(219, 255, 74, 0.05) 0%, transparent 70%);
+}
+
+.radar-scanner::before {
+  content: '';
+  position: absolute;
+  inset: 15px;
+  border: 1px dashed rgba(219, 255, 74, 0.15);
+  border-radius: 50%;
+}
+
+.radar-scanner::after {
+  content: '';
+  position: absolute;
+  inset: 35px;
+  border: 1px solid rgba(219, 255, 74, 0.1);
+  border-radius: 50%;
+}
+
+.radar-sweep {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, rgba(219, 255, 74, 0.25) 0deg, rgba(219, 255, 74, 0.05) 90deg, transparent 180deg);
+  animation: radarRotate 3s linear infinite;
+}
+
+.radar-ping {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: var(--signal);
+  border-radius: 50%;
+  box-shadow: 0 0 12px var(--signal);
+  animation: radarPingAnimation 2s ease-out infinite;
+}
+
+@keyframes radarRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes radarPingAnimation {
+  0% { transform: scale(0.6); opacity: 1; }
+  100% { transform: scale(3.5); opacity: 0; }
+}
+
+/* Scanning Steps Layout */
+.scanning-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 248, 238, 0.02);
+  border: 1px solid rgba(255, 248, 238, 0.04);
+  transition: all 0.3s ease;
+}
+
+.scanning-step.active {
+  background: rgba(219, 255, 74, 0.04);
+  border-color: rgba(219, 255, 74, 0.2);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.15);
+}
+
+.scanning-step.completed {
+  background: rgba(49, 245, 139, 0.02);
+  border-color: rgba(49, 245, 139, 0.12);
+}
+
+.step-icon {
+  font-size: 1.25rem;
+}
+
+.step-content {
+  flex: 1;
+}
+
+.step-content strong {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.scanning-step.active .step-content strong {
+  color: var(--signal);
+}
+
+.scanning-step.completed .step-content strong {
+  color: #31f58b;
+}
+
+.step-content p {
+  margin: 4px 0 0;
+  font-size: 0.76rem;
+  color: var(--foreground-muted);
+  line-height: 1.4;
+}
+
+/* Spinner indicator */
+.scanning-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(219, 255, 74, 0.2);
+  border-top-color: var(--signal);
+  border-radius: 50%;
+  animation: spinnerRotate 1s linear infinite;
+  align-self: center;
+}
+
+.step-checkmark {
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: #31f58b;
+  border: 1px solid rgba(49, 245, 139, 0.3);
+  border-radius: 50%;
+  background: rgba(49, 245, 139, 0.1);
+  align-self: center;
+}
+
+@keyframes spinnerRotate {
+  to { transform: rotate(360deg); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

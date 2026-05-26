@@ -2,9 +2,10 @@
 
 type PhonePreviewProps = {
   uploadedImage: string | null;
+  isScanning?: boolean;
 };
 
-export function PhonePreview({ uploadedImage }: PhonePreviewProps) {
+export function PhonePreview({ uploadedImage, isScanning }: PhonePreviewProps) {
   return (
     <div className="preview-panel">
       <div className="product-panel-header" style={{ width: "100%", justifyContent: "center", borderBottom: "none", opacity: 0.6 }}>
@@ -22,11 +23,25 @@ export function PhonePreview({ uploadedImage }: PhonePreviewProps) {
             </div>
             
             {uploadedImage ? (
-              <img 
-                src={uploadedImage} 
-                alt="Preview" 
-                style={{ width: "100%", height: "85%", objectFit: "contain", marginTop: "10px", borderRadius: "8px" }} 
-              />
+              <div style={{ position: "relative", width: "100%", height: "85%", marginTop: "10px", overflow: "hidden", borderRadius: "8px" }}>
+                <img 
+                  src={uploadedImage} 
+                  alt="Preview" 
+                  style={{ width: "100%", height: "100%", objectFit: "contain" }} 
+                />
+                {isScanning && (
+                  <>
+                    <div className="scanning-laser-line" />
+                    <div style={{
+                      position: "absolute",
+                      inset: 0,
+                      background: "linear-gradient(to bottom, rgba(219, 255, 74, 0.04), rgba(219, 255, 74, 0.12))",
+                      mixBlendMode: "overlay",
+                      animation: "pulseScan 2s infinite alternate"
+                    }} />
+                  </>
+                )}
+              </div>
             ) : (
               <div className="phone-receipt">
                 <span className="phone-receipt-label">Sample Proof</span>

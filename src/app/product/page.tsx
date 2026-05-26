@@ -97,9 +97,9 @@ export default function ProductPage() {
           hasResults={!!scanResults}
         />
         
-        <PhonePreview uploadedImage={uploadedImage} />
+        <PhonePreview uploadedImage={uploadedImage} isScanning={isScanning} />
         
-        <ResultsPanel results={scanResults} />
+        <ResultsPanel results={scanResults} isScanning={isScanning} />
       </div>
     </div>
   );
