@@ -9,6 +9,7 @@ type UploadPanelProps = {
   onScan: () => void;
   isScanning: boolean;
   hasResults: boolean;
+  onLoadDemo: () => void;
 };
 
 export function UploadPanel({
@@ -18,6 +19,7 @@ export function UploadPanel({
   onScan,
   isScanning,
   hasResults,
+  onLoadDemo,
 }: UploadPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -67,6 +69,31 @@ export function UploadPanel({
             accept="image/*"
             onChange={handleFileChange}
           />
+        </div>
+
+        {/* Try with sample receipt UX link */}
+        <div style={{ marginTop: "14px", textAlign: "center", marginBottom: "8px" }}>
+          <span style={{ fontSize: "0.74rem", color: "var(--foreground-dim)" }}>No screenshot handy? </span>
+          <button 
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation(); // Avoid triggering dropzone click
+              onLoadDemo();
+            }}
+            disabled={isScanning}
+            style={{
+              background: "none",
+              border: "none",
+              color: "var(--signal)",
+              fontSize: "0.74rem",
+              fontWeight: 800,
+              textDecoration: "underline",
+              cursor: "pointer",
+              padding: 0
+            }}
+          >
+            Load Demo Screenshot
+          </button>
         </div>
 
         {uploadedImage && (

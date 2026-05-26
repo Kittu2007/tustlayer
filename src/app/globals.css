@@ -1016,6 +1016,12 @@ body {
   background: var(--bg-card);
   backdrop-filter: blur(14px);
   overflow: hidden;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.product-panel:hover {
+  border-color: rgba(255, 248, 238, 0.16);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.02);
 }
 
 .product-panel-header {
@@ -1047,18 +1053,18 @@ body {
 .upload-dropzone {
   border: 2px dashed rgba(255, 248, 238, 0.12);
   border-radius: var(--radius-md);
-  background: rgba(255, 248, 238, 0.015);
+  background: rgba(255, 248, 238, 0.01);
   padding: clamp(28px, 4vh, 48px) 20px;
   text-align: center;
   cursor: pointer;
-  transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+  transition: border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease, box-shadow 0.3s ease;
 }
 
 .upload-dropzone:hover,
 .upload-dropzone.dragging {
   border-color: var(--signal);
-  background: rgba(219, 255, 74, 0.03);
-  box-shadow: 0 0 22px var(--signal-glow);
+  background: rgba(219, 255, 74, 0.02);
+  box-shadow: 0 0 32px rgba(219, 255, 74, 0.08);
 }
 
 .upload-dropzone-icon {
@@ -1105,21 +1111,39 @@ body {
   margin-top: 16px;
   border: none;
   border-radius: var(--radius-md);
-  background: linear-gradient(135deg, var(--signal), #a8cc22);
-  padding: 14px;
-  color: #0a0b06;
-  font-size: 0.82rem;
+  background: linear-gradient(135deg, var(--signal), #bcf01a);
+  padding: 15px;
+  color: #050505;
+  font-size: 0.84rem;
   font-weight: 900;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   cursor: pointer;
-  box-shadow: 0 8px 24px var(--signal-glow);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 8px 32px var(--signal-glow);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.scan-btn::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -150%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transform: rotate(45deg);
+  transition: left 0.5s ease;
 }
 
 .scan-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 32px var(--signal-glow);
+  transform: translateY(-3px);
+  box-shadow: 0 16px 42px var(--signal-glow), 0 0 22px rgba(219, 255, 74, 0.3);
+}
+
+.scan-btn:hover:not(:disabled)::after {
+  left: 150%;
 }
 
 .scan-btn:disabled {
