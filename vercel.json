@@ -9,6 +9,11 @@
     "PYTHON_VERSION": "3.12",
     "PYO3_USE_ABI3_FORWARD_COMPATIBILITY": "1"
   },
+  "functions": {
+    "api/**/*.py": {
+      "includeFiles": "backend/**"
+    }
+  },
   "rewrites": [
     {
       "source": "/(.*)",
