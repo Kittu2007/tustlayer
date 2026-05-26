@@ -16,7 +16,7 @@ export function HeroSection() {
             Every UPI <span className="accent">screenshot</span> looks real.
           </h1>
           <p className="hero-sub reveal-up">
-            Stop accepting fake UPI proofs. TrustLayer AI verifies every payment screenshot in under 2 seconds.
+            Stop accepting fake UPI proofs. TrustLayer AI verifies every payment screenshot in seconds.
           </p>
           <div className="hero-actions reveal-up">
             <Link href="/product" className="btn-primary">
@@ -28,7 +28,7 @@ export function HeroSection() {
           </div>
         </div>
 
-        <div className="hero-phone-wrap reveal-scale" style={{ display: "flex", justifyContent: "center" }}>
+        <div className="hero-phone-wrap reveal-scale" style={{ display: "flex", justifyContent: "flex-end" }}>
           <ForensicPhone />
         </div>
       </div>
