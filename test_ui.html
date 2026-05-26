@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrustLayer AI - MVP Tester</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #0f172a; color: #f8fafc; }
+        .container { background: #1e293b; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { color: #38bdf8; }
+        button { background: #0284c7; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #0369a1; }
+        .file-upload { margin-bottom: 20px; }
+        #results { margin-top: 20px; padding: 15px; background: #0f172a; border-radius: 4px; border: 1px solid #334155; white-space: pre-wrap; font-family: monospace; min-height: 200px;}
+        .loading { color: #94a3b8; font-style: italic; }
+    </style>
+    <script>
+        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>TrustLayer AI - Forensic Scanner</h1>
+        <p>Upload a payment screenshot to test the deterministic Trust Score + AI Reasoning engine.</p>
+        
+        <div class="file-upload">
+            <input type="file" id="imageInput" accept="image/*" />
+            <button onclick="scanImage()">Scan Screenshot</button>
+        </div>
+
+        <h3>Scan Results:</h3>
+        <div id="results">Awaiting upload...</div>
+    </div>
+
+    <script>
+        async function scanImage() {
+            const fileInput = document.getElementById('imageInput');
+            const resultsDiv = document.getElementById('results');
+            
+            if (!fileInput.files.length) {
+                alert('Please select an image first.');
+                return;
+            }
+
+            const formData = new FormData();
+            // Assuming the FastAPI endpoint accepts a file named 'file' or 'image'
+            formData.append('file', fileInput.files[0]); 
+
+            resultsDiv.innerHTML = '<span class="loading">Executing TrustLayer Scan Pipeline (OCR -> Engine -> Reasoning)...</span>';
+
+            try {
+                // Targeting the live Vercel endpoint
+                const response = await fetch('https://trust-layer-tool.vercel.app/api/v1/scan/execute', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${await response.text()}`);
+                }
+
+                const data = await response.json();
+                resultsDiv.innerHTML = JSON.stringify(data, null, 2);
+            } catch (error) {
+                resultsDiv.innerHTML = `<span style="color: #ef4444;">Error: ${error.message}</span>\n\n(Make sure the FastAPI backend is running and CORS is enabled!)`;
+            }
+        }
+    </script>
+</body>
+</html>
