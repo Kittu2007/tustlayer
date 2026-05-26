@@ -13,7 +13,7 @@ async def evaluate_trust_score(
     Calculates the final deterministic trust score based on inputs from OCR, Fraud Intelligence, and visual heuristics.
     """
     try:
-        result = assembler.evaluate(payload)
+        result = await assembler.evaluate(payload)
         return result
     except Exception as e:
         print(f"Trust Score Engine Error: {e}")
